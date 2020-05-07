@@ -1,0 +1,148 @@
+---
+title: "Iteration"
+---
+
+```{r setup}
+library(tidyverse)
+library(repurrrsive)
+library(broom)
+names(sw_people) <- sw_people %>% map_chr("name")
+
+# Toy data
+set.seed(1000)
+exams <- list(
+  student1 = round(runif(10, 50, 100)),
+  student2 = round(runif(10, 50, 100)),
+  student3 = round(runif(10, 50, 100)),
+  student4 = round(runif(10, 50, 100)),
+  student5 = round(runif(10, 50, 100))
+)
+
+extra_credit <- list(0, 0, 10, 10, 15)
+
+names(who) <- str_replace(names(who), "newrel", "new_rel")
+tb <-  
+  who %>%
+  gather("codes", "n", 5:60) %>%
+  separate(codes, c("new", "type", "sexage"), sep = "_") %>%
+  select(-new, -iso2, -iso3) %>%
+  separate(sexage, c("sex", "age"), sep = 1) %>%
+  drop_na(n)
+```
+
+# Mapping
+
+## purrr
+
+
+## Your Turn 1
+
+Run the code in the chunk. What does it do?
+
+```{r}
+#View(exams)
+exams %>% map(mean)
+```
+maps the mean funtion to every vector inside of the exams list
+applies a funtion to every element of a list and returns as a list
+## map shorthand
+if what we want to do is not a function
+~ and . maps an expression
+
+
+ 
+## Your Turn 2
+
+Complete the code to apply the test below to every element of the list. Return the results as a vector.
+
+`length(<input> == 10)`
+
+```{r}
+exams %>% map_lgl(~length(.)==10)
+```
+the lgl means map to logical
+## Your Turn 3
+
+Recompute the grades by dropping the lowest score and then taking the mean of the rest, i.e. Return the results as a _double_ vector.
+
+`(sum(<input>) - min(<input>)) / 9`
+
+```{r}
+exams %>%  map_dbl(~sum(.)-min(.))/9
+```
+
+dbl means double because we want a numeric vector
+## Your Turn 4
+
+Compute a final grade for each student, where the final grade is the average test score plus any `extra_credit` assigned to the student. Return the results as a double (i.e. numeric) vector.
+
+`mean(<exams>) + <extra_credit>`
+
+```{r}
+exams %>% 
+  map2_dbl(extra_credit, ~mean(.x) + .y)
+```
+
+
+# Putting it all together
+
+Predict TB cases in 2020 for Afghanistan
+
+```{r}
+tb %>% 
+  filter(country == "Afghanistan") %>%
+  group_by(year) %>% 
+  summarise(n = sum(n)) %>% 
+  lm(n ~ year, data = .) %>% 
+  predict(newdata = tibble(year = 2020)) %>% 
+  round()
+```
+
+Predict TB cases in 2020 for each country
+
+```{r}
+tb_predictions <-
+  tb %>% 
+  group_by(country, year) %>% 
+  summarise(n = sum(n)) %>% 
+  nest() %>% 
+  mutate(model = map(data, ~lm(n ~ year, data = .))) %>%
+  mutate(pred = map_dbl(model, predict, tibble(year = 2020))) %>%
+  mutate(pred = round(pred))
+```
+
+Things that we can now do:
+
+* Which countries will have the most cases?India
+* What does the data look like for India? has 5 columns
+* How do the Korea's compare? only has 2 columns no year n or model
+
+
+```{r}
+tb_predictions %>% 
+  select(country, pred) %>% 
+  arrange(desc(pred))
+```
+
+```{r}
+tb_predictions %>%
+  filter(country=="India") %>% 
+  unnest(data)
+```
+
+```{r}
+tb_predictions %>%
+  filter(str_detect(country,"Korea")) %>% 
+  select(country, pred) 
+```
+
+
+***
+
+Take Aways
+
+* Use `View()` to inspect lists
+* Use `pluck()`, `[[ ]]`, or `$` to extract values from lists
+* Use purrr's `map()` functions to manipulate lists
+* Lists can be a column in a data frame
+* Tables are an organizational structure that you can manipulate.
